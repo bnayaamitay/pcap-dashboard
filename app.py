@@ -11,7 +11,7 @@ Tabs     : Overview | Packets | HTTP Transactions | TCP Streams | Ask AI | Expos
 
 from __future__ import annotations
 
-import json
+import re
 import tempfile
 from pathlib import Path
 
@@ -291,45 +291,31 @@ with tabs[3]:
 # Tab 5 - Ask AI (items 30-34)
 # ---------------------------------------------------------------------------
 
-EXAMPLE_QUESTIONS = [
-    "Which HTTP request was the slowest?",
-    "Which status codes were returned?",
-    "How many requests were sent to httpbin.org?",
-    "What happened in the selected stream?",
-    "Which parameters were sent in the form?",
-    "איזו בקשה הייתה הכי איטית ולמה?",
-]
+STREAM_IN_QUESTION = re.compile(r"(?i)(?:stream|סטרים|זרם)\s*#?\s*(\d+)")
+
+
+def stream_for_question(text: str) -> int | None:
+    """
+    Which TCP stream the question is about:
+    1) a stream number written in the question ("stream 23" / "סטרים 23"), or
+    2) the row selected in the TCP Streams tab.
+    """
+    known = set(streams["stream"]) if not streams.empty else set()
+    match = STREAM_IN_QUESTION.search(text)
+    if match and int(match.group(1)) in known:
+        return int(match.group(1))
+    selected = st.session_state.get("ai_stream")
+    return selected if selected in known else None    # may be left from another capture
+
 
 with tabs[4]:
-    st.caption("The AI receives only the data extracted above (as JSON) — never the capture "
-               "file itself. Every answer comes with evidence that is **checked automatically** "
-               "against the real packets.")
+    # st.chat_input enables its send button while typing (no need to click outside
+    # the box) and sends on Enter.
+    question = st.chat_input("Ask anything about this capture (any language)…")
 
-    stream_options = [None] + streams["stream"].tolist() if not streams.empty else [None]
-    default_stream = st.session_state.get("ai_stream")
-    selected_stream = st.selectbox(
-        "Stream to focus on (for questions like 'what happened in the selected stream')",
-        stream_options,
-        index=stream_options.index(default_stream) if default_stream in stream_options else 0,
-        format_func=lambda s: "— none —" if s is None else
-        f"stream {s}: " + streams.loc[streams['stream'] == s, 'client'].iloc[0] + " → " +
-        streams.loc[streams['stream'] == s, 'server'].iloc[0])
-
-    st.write("Examples:")
-    ex_cols = st.columns(3)
-    for i, q in enumerate(EXAMPLE_QUESTIONS):
-        if ex_cols[i % 3].button(q, key=f"ex{i}", width="stretch"):
-            st.session_state["question"] = q
-
-    question = st.text_area("Your question (any language)", key="question", height=80)
-    ask = st.button("Ask", type="primary", disabled=not question.strip())
-
-    context = build_context(analysis, selected_stream, include_facts)
-    with st.expander("🔍 Exactly what is sent to the AI (the context)"):
-        shown = json.dumps(context, ensure_ascii=False, indent=2, default=str)
-        st.code(mask_personal_data(shown) if mask_pii else shown, language="json")
-
-    if ask:
+    if question:
+        selected_stream = stream_for_question(question)
+        context = build_context(analysis, selected_stream, include_facts)
         if not api_key:
             st.error("Add a Gemini API key in the sidebar or in the .env file.")
         else:
@@ -337,14 +323,15 @@ with tabs[4]:
                 with st.spinner("Asking Gemini…"):
                     result = ask_gemini(question, context, api_key, model_name, mask_pii)
                 result = verify_evidence(result, analysis)
-                st.session_state.setdefault("history", []).insert(0, (question, result))
+                st.session_state.setdefault("history", []).insert(
+                    0, (question, result, selected_stream))
             except Exception as exc:
                 message = str(exc)
                 if "429" in message or "RESOURCE_EXHAUSTED" in message:
                     st.error("Gemini free-tier rate limit reached — wait a minute and try again.")
                 elif "503" in message or "UNAVAILABLE" in message:
                     st.error("Gemini is temporarily overloaded (error 503, on Google's side). "
-                             "Wait a few seconds and press Ask again.")
+                             "Wait a few seconds and send the question again.")
                 elif "404" in message or "not found" in message.lower():
                     st.error(f"Model '{model_name}' is not available for this API key. "
                              "Change DEFAULT_MODEL in ai_assistant.py.")
@@ -352,11 +339,14 @@ with tabs[4]:
                     st.error(f"AI request failed: {message}")
 
     badge = {"high": "🟢 high", "medium": "🟡 medium", "low": "🔴 low"}
-    for q, result in st.session_state.get("history", []):
+    for q, result, used_stream in st.session_state.get("history", []):
         with st.container(border=True):
             st.markdown(f"**❓ {q}**")
             st.markdown(result.answer)
-            st.caption(f"Model confidence: {badge.get(result.confidence, result.confidence)}")
+            stream_note = f" · included details of TCP stream {used_stream}" \
+                if used_stream is not None else ""
+            st.caption(f"Model confidence: {badge.get(result.confidence, result.confidence)}"
+                       f"{stream_note}")
             for warning in result.warnings:
                 st.warning(warning)
             if result.caveats:
