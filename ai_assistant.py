@@ -26,7 +26,8 @@ import pandas as pd
 
 from pcap_analyzer import CaptureAnalysis, stream_timeline
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+# The lightest Gemini model: cheapest in tokens and the highest free-tier quota.
+DEFAULT_MODEL = "gemini-3.1-flash-lite"
 
 # Limits that keep the prompt small enough for the free tier.
 MAX_TRANSACTIONS_IN_CONTEXT = 150

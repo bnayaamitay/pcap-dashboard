@@ -24,7 +24,7 @@ from ai_assistant import (DEFAULT_MODEL, ask_gemini, build_context, describe_str
                           get_api_key, mask_personal_data, verify_evidence)
 from pcap_analyzer import CaptureAnalysis, analyze_pcap, stream_timeline
 
-load_dotenv()                                   # reads GEMINI_API_KEY from .env
+load_dotenv(override=True)      # reads GEMINI_API_KEY from .env (re-read on every rerun)
 CAPTURES_DIR = Path(__file__).parent / "captures"
 
 st.set_page_config(page_title="PCAP Dashboard", page_icon="📡", layout="wide")
@@ -95,7 +95,9 @@ with st.sidebar:
     else:
         api_key = st.text_input("Gemini API key", type="password",
                                 help="Not saved anywhere. Better: put GEMINI_API_KEY in a .env file.")
-    model_name = st.text_input("Model", value=DEFAULT_MODEL)
+    # A single, fixed model: the lightest one, to keep token usage low.
+    model_name = DEFAULT_MODEL
+    st.caption(f"Model: `{model_name}` (lightest Gemini model, lowest token usage)")
     mask_pii = st.checkbox("Mask e-mails / phone numbers before sending to the AI", value=True)
     include_facts = st.checkbox("Give the AI pre-computed facts", value=True,
                                 help="Exact values computed by Python (slowest request, counts…). "
@@ -340,9 +342,12 @@ with tabs[4]:
                 message = str(exc)
                 if "429" in message or "RESOURCE_EXHAUSTED" in message:
                     st.error("Gemini free-tier rate limit reached — wait a minute and try again.")
+                elif "503" in message or "UNAVAILABLE" in message:
+                    st.error("Gemini is temporarily overloaded (error 503, on Google's side). "
+                             "Wait a few seconds and press Ask again.")
                 elif "404" in message or "not found" in message.lower():
-                    st.error(f"Model '{model_name}' was not found. Try another model name "
-                             "(e.g. gemini-2.5-flash-lite).")
+                    st.error(f"Model '{model_name}' is not available for this API key. "
+                             "Change DEFAULT_MODEL in ai_assistant.py.")
                 else:
                     st.error(f"AI request failed: {message}")
 
