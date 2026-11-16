@@ -1,6 +1,4 @@
-# PCAP Dashboard – V1
-
-רשתות תקשורת · מטלה 1 · חלק ג'
+# PCAP Dashboard 
 
 כלי ב-Python שמקבל קובץ PCAP / PCAPNG, מחלץ ממנו בעצמו את המידע (חבילות, TCP Streams, טרנזקציות HTTP),
 מציג אותו ב-Dashboard ומאפשר לשאול עליו שאלות בשפה חופשית בעזרת Gemini. כל תשובה של ה-AI מגיעה עם evidence
@@ -17,14 +15,6 @@ python -m venv .venv
 .venv\Scripts\activate          # Windows   (Linux/Mac: source .venv/bin/activate)
 pip install -r requirements.txt
 ```
-
-### מפתח API ל-Gemini (חינמי)
-1. נכנסים ל-https://aistudio.google.com/apikey ויוצרים מפתח.
-2. מעתיקים את `.env.example` לקובץ חדש בשם `.env` ומדביקים בו את המפתח:
-   ```
-   GEMINI_API_KEY=המפתח-שלכם
-   ```
-   הקובץ `.env` נמצא ב-`.gitignore` ולכן לא עולה ל-GitHub. אפשר גם להדביק את המפתח ישירות בסרגל הצד של האפליקציה.
 
 ## הרצה
 
