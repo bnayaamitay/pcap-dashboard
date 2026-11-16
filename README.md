@@ -1,12 +1,12 @@
-# PCAP Dashboard 
+# PCAP Dashboard
 
-כלי ב-Python שמקבל קובץ PCAP / PCAPNG, מחלץ ממנו בעצמו את המידע (חבילות, TCP Streams, טרנזקציות HTTP),
-מציג אותו ב-Dashboard ומאפשר לשאול עליו שאלות בשפה חופשית בעזרת Gemini. כל תשובה של ה-AI מגיעה עם evidence
-(frames ו-timestamps), והמערכת **בודקת אוטומטית** את ה-evidence מול החבילות האמיתיות.
+A Python tool that takes a PCAP / PCAPNG file, extracts the data itself (packets, TCP streams, HTTP transactions),
+displays it in a dashboard, and lets you ask free-form questions about it using Gemini. Every AI answer comes with
+evidence (frames and timestamps), and the system **automatically verifies** that evidence against the actual packets.
 
-## התקנה
+## Installation
 
-דרוש Python 3.10 ומעלה.
+Requires Python 3.10 or later.
 
 ```bash
 git clone https://github.com/bnayaamitay/pcap-dashboard.git
@@ -16,52 +16,52 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-## הרצה
+## Running
 
 ```bash
 streamlit run app.py
 ```
-הדפדפן נפתח בכתובת http://localhost:8501. בסרגל הצד בוחרים הקלטה מתיקיית `captures/` או מעלים קובץ.
+The browser opens at http://localhost:8501. In the sidebar, pick a recording from the `captures/` folder or upload a file.
 
-בדיקות אוטומטיות (משוות לערכים שמצאנו ידנית ב-Wireshark):
+Automated tests (compared against values we found manually in Wireshark):
 ```bash
 python -m pytest -v
 ```
 
-## מבנה הפרויקט
+## Project structure
 
-| קובץ | תפקיד |
+| File | Purpose |
 |---|---|
-| `pcap_analyzer.py` | קריאת ההקלטה, TCP reassembly, פענוח HTTP, התאמת בקשה↔תגובה, חילוץ SNI מ-TLS |
-| `ai_assistant.py` | בניית ה-context ל-AI, הפרומפט, קריאה ל-Gemini ואימות ה-evidence |
-| `charts.py` | הגרפים (Plotly) |
-| `app.py` | ממשק ה-Dashboard (Streamlit) |
-| `tests/test_analyzer.py` | בדיקות מול תוצאות החלק הידני |
-| `captures/` | קובצי ההקלטה ששימשו אותנו |
+| `pcap_analyzer.py` | Reading the capture, TCP reassembly, HTTP parsing, request↔response matching, TLS SNI extraction |
+| `ai_assistant.py` | Building the AI context, the prompt, calling Gemini, and verifying the evidence |
+| `charts.py` | Charts (Plotly) |
+| `app.py` | Dashboard UI (Streamlit) |
+| `tests/test_analyzer.py` | Tests against the results of the manual part |
+| `captures/` | The capture files we used |
 
-## מה ה-Dashboard מציג
+## What the dashboard shows
 
-| לשונית | תוכן | סעיפים במטלה |
-|---|---|---|
-| כותרת | מספר חבילות, זמן התחלה/סיום, משך, גודל | 24 |
-| Overview | נפח תעבורה לאורך זמן, התפלגות פרוטוקולים, כתובות קצה עיקריות ושיחות | 25, 26 |
-| Packets | רשימת חבילות עם סינון לפי פרוטוקול / IP / פורט | — |
-| HTTP Transactions | כל בקשה עם התגובה שלה: Method, Host, URI, כתובות, פורטים, Status, זמן תגובה, frames. לחיצה על שורה מציגה headers, פרמטרים ומספר מקטעי TCP | 27–29 |
-| TCP Streams | כל חיבור TCP; בחירת stream מציגה את כל החבילות שלו ותיאור (handshake / FIN / RST) | 31 |
-| Ask AI | שאלה חופשית, תשובה, רמת ביטחון ו-evidence מאומת | 30–34 |
-| Exposure Report | מה גלוי לצותת: מידע שנשלח ב-HTTP גלוי לעומת מה שרואים גם ב-HTTPS (IP, גדלים, SNI) | יצירתיות |
+| Tab | Content |
+|---|---|
+| Header | Packet count, start/end time, duration, size |
+| Overview | Traffic volume over time, protocol distribution, top endpoints and conversations |
+| Packets | Packet list with filtering by protocol / IP / port |
+| HTTP Transactions | Every request with its response: method, host, URI, addresses, ports, status, response time, frames. Clicking a row shows headers, parameters, and the number of TCP segments |
+| TCP Streams | Every TCP connection; selecting a stream shows all its packets and a description (handshake / FIN / RST) |
+| Ask AI | Free-form question, answer, confidence level, and verified evidence |
+| Exposure Report | What an eavesdropper can see: data sent over plain HTTP versus what is visible even over HTTPS (IPs, sizes, SNI) |
 
-## איך עובד חלק ה-AI
+## How the AI part works
 
-1. **ה-AI לא מקבל את קובץ ה-PCAP.** הקוד שלנו מחלץ את הנתונים ושולח רק JSON מסודר: סיכום ההקלטה, טבלת טרנזקציות, חיבורי TLS, וה-stream הנבחר. ה-stream שמצורף לשאלה נקבע לפי מספר שכתוב בשאלה ("stream 23") או לפי השורה שנבחרה בלשונית TCP Streams.
-2. **עובדות מחושבות מראש** (`precomputed_facts`): הבקשה הכי איטית, ספירת status codes, בקשות לכל host ועוד מחושבים ב-Python. המודל לא צריך לבצע חישובים על טבלאות ארוכות.
-3. **פלט מובנה**: המודל מחזיר JSON עם `answer`, `evidence`, `confidence` ו-`caveats`.
-4. **אימות evidence**: לכל frame שהמודל מצטט בודקים שהוא קיים ושה-timestamp תואם. מוצגים ✅ / ⚠️ / ❌, ואם יש evidence שגוי רמת הביטחון יורדת ל-low.
-5. **מודל**: `gemini-3.5-flash-lite`, מודל "lite" קל וחסכוני בטוקנים. אם Google עמוס (שגיאה 503) הבקשה נשלחת שוב אוטומטית עד 3 פעמים, וכל ניסיון מוגבל ל-25 שניות (מוגדר ב-`DEFAULT_MODEL` בקובץ `ai_assistant.py`). המודל `gemini-2.5-flash-lite` כבר לא זמין למשתמשים חדשים.
-6. **פרטיות**: כתובות אימייל ומספרי טלפון מוסתרים לפני השליחה (ניתן לכבות בסרגל הצד).
+1. **The AI does not receive the PCAP file.** Our code extracts the data and sends only structured JSON: a capture summary, the transactions table, TLS connections, and the selected stream. The stream attached to a question is determined by a number written in the question ("stream 23") or by the row selected in the TCP Streams tab.
+2. **Precomputed facts** (`precomputed_facts`): the slowest request, status code counts, requests per host, and more are computed in Python, so the model doesn't need to do calculations over long tables.
+3. **Structured output**: the model returns JSON with `answer`, `evidence`, `confidence`, and `caveats`.
+4. **Evidence verification**: for every frame the model cites, we check that it exists and that the timestamp matches. ✅ / ⚠️ / ❌ are shown, and if any evidence is wrong the confidence drops to low.
+5. **Model**: `gemini-3.5-flash-lite`, a lightweight "lite" model that is economical with tokens. If Google is overloaded (error 503), the request is automatically retried up to 3 times, and each attempt is limited to 25 seconds (configured via `DEFAULT_MODEL` in `ai_assistant.py`).
+6. **Privacy**: email addresses and phone numbers are masked before sending (can be turned off in the sidebar).
 
-## הערות טכניות
-- מספרי ה-frame זהים לעמודה No. ב-Wireshark (מתחילים ב-1).
-- הודעת HTTP שהתפצלה לכמה מקטעי TCP מדווחת ב-frame שהשלים אותה, כמו ב-Wireshark. מקטעים שהגיעו שלא לפי הסדר ו-retransmissions מטופלים.
-- זמן תגובה = הזמן בין ה-frame של הבקשה ל-frame של התגובה (כמו `http.time` ב-Wireshark).
-- התאמת בקשה לתגובה נעשית לפי הסדר באותו חיבור TCP (כך עובד HTTP/1.1).
+## Technical notes
+- Frame numbers match the No. column in Wireshark (starting at 1).
+- An HTTP message split across several TCP segments is reported at the frame that completed it, as in Wireshark. Out-of-order segments and retransmissions are handled.
+- Response time = the time between the request frame and the response frame (like `http.time` in Wireshark).
+- Requests are matched to responses by order within the same TCP connection (this is how HTTP/1.1 works).
