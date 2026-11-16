@@ -97,7 +97,7 @@ with st.sidebar:
                                 help="Not saved anywhere. Better: put GEMINI_API_KEY in a .env file.")
     # A single, fixed model: the lightest one, to keep token usage low.
     model_name = DEFAULT_MODEL
-    st.caption(f"Model: `{model_name}` (lightest Gemini model, lowest token usage)")
+    st.caption(f"Model: `{model_name}`")
     mask_pii = st.checkbox("Mask e-mails / phone numbers before sending to the AI", value=True)
     include_facts = st.checkbox("Give the AI pre-computed facts", value=True,
                                 help="Exact values computed by Python (slowest request, counts…). "
@@ -360,6 +360,9 @@ with tabs[4]:
                 message = str(exc)
                 if "429" in message or "RESOURCE_EXHAUSTED" in message:
                     st.error("Gemini free-tier rate limit reached — wait a minute and try again.")
+                elif "timed out" in message.lower() or "timeout" in message.lower():
+                    st.error("Gemini did not answer in time. "
+                             "Try again in a moment.")
                 elif "503" in message or "UNAVAILABLE" in message:
                     st.error("Gemini is temporarily overloaded (error 503, on Google's side). "
                              "Wait a few seconds and send the question again.")

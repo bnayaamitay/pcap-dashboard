@@ -26,8 +26,11 @@ import pandas as pd
 
 from pcap_analyzer import CaptureAnalysis, stream_timeline
 
-# The lightest Gemini model: cheapest in tokens and the highest free-tier quota.
-DEFAULT_MODEL = "gemini-3.1-flash-lite"
+# A light "lite" Gemini model, to keep token usage low.
+DEFAULT_MODEL = "gemini-3.5-flash-lite"
+
+# Each attempt gives up after this many seconds instead of loading forever.
+REQUEST_TIMEOUT_S = 25
 
 # Limits that keep the prompt small enough for the free tier.
 MAX_TRANSACTIONS_IN_CONTEXT = 150
@@ -266,7 +269,14 @@ def ask_gemini(question: str, context: dict, api_key: str,
     prompt = (f"CONTEXT (extracted from the capture):\n{context_json}\n\n"
               f"QUESTION:\n{question}")
 
-    client = genai.Client(api_key=api_key)
+    client = genai.Client(api_key=api_key,
+                          http_options=types.HttpOptions(
+                              timeout=REQUEST_TIMEOUT_S * 1000,
+                              # Google often answers "503 overloaded" on the free
+                              # tier; these fail fast, so retry up to 3 times with
+                              # a short pause (1-3 s) before showing an error.
+                              retry_options=types.HttpRetryOptions(
+                                  attempts=4, initial_delay=1.0, max_delay=3.0)))
     response = client.models.generate_content(
         model=model,
         contents=prompt,
