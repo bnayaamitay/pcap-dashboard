@@ -1,4 +1,4 @@
-# PCAP Dashboard
+# PCAP Dashboard V1
 
 A Python tool that takes a PCAP / PCAPNG file, extracts the data itself (packets, TCP streams, HTTP transactions),
 displays it in a dashboard, and lets you ask free-form questions about it using Gemini. Every AI answer comes with
