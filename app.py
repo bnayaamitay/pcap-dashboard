@@ -291,6 +291,37 @@ with tabs[3]:
 # Tab 5 - Ask AI (items 30-34)
 # ---------------------------------------------------------------------------
 
+HEBREW_LETTER = re.compile(r"[֐-׿]")
+LATIN_LETTER = re.compile(r"[A-Za-z]")
+
+# The question box picks its direction from the first letter typed
+# (unicode-bidi: plaintext), so Hebrew is typed right-to-left immediately.
+st.markdown("""<style>
+[data-testid="stChatInput"] textarea { unicode-bidi: plaintext; text-align: start; }
+</style>""", unsafe_allow_html=True)
+
+
+def is_rtl(text: str) -> bool:
+    """
+    True when the text is mainly Hebrew. Hebrew answers contain many English
+    technical terms (GET, frame, httpbin.org...), so Hebrew only needs to be
+    at least half as frequent as Latin letters to count as a Hebrew text.
+    """
+    hebrew = len(HEBREW_LETTER.findall(text))
+    latin = len(LATIN_LETTER.findall(text))
+    return hebrew > 0 and hebrew >= latin * 0.5
+
+
+def show_text(text: str) -> None:
+    """Markdown that is right-aligned and right-to-left when the text is Hebrew."""
+    if is_rtl(text):
+        # blank lines around the text keep markdown (bold, `code`, lists) working
+        st.markdown(f'<div dir="rtl" style="text-align: right">\n\n{text}\n\n</div>',
+                    unsafe_allow_html=True)
+    else:
+        st.markdown(text)
+
+
 STREAM_IN_QUESTION = re.compile(r"(?i)(?:stream|סטרים|זרם)\s*#?\s*(\d+)")
 
 
@@ -341,8 +372,8 @@ with tabs[4]:
     badge = {"high": "🟢 high", "medium": "🟡 medium", "low": "🔴 low"}
     for q, result, used_stream in st.session_state.get("history", []):
         with st.container(border=True):
-            st.markdown(f"**❓ {q}**")
-            st.markdown(result.answer)
+            show_text(f"**❓ {q}**")
+            show_text(result.answer)
             stream_note = f" · included details of TCP stream {used_stream}" \
                 if used_stream is not None else ""
             st.caption(f"Model confidence: {badge.get(result.confidence, result.confidence)}"
@@ -350,7 +381,7 @@ with tabs[4]:
             for warning in result.warnings:
                 st.warning(warning)
             if result.caveats:
-                st.info(f"Caveats: {result.caveats}")
+                show_text(f"ℹ️ *{result.caveats}*")
             if result.verification:
                 st.markdown("**Evidence (verified against the capture):**")
                 ev = pd.DataFrame(result.verification)
