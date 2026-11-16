@@ -17,3 +17,6 @@ Thumbs.db
 
 # Streamlit local config
 .streamlit/secrets.toml
+
+# Test cache
+.pytest_cache/
