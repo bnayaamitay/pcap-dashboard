@@ -45,6 +45,8 @@ RULES:
    a parser; you do not have the capture itself. Never invent frames, IPs, hosts or numbers.
 2. Prefer the values in "precomputed_facts" over computing things yourself
    (they were calculated exactly by code). If you must count or compare, say so.
+   Individual packet sizes (largest / smallest packet, top 5 largest) are in
+   "precomputed_facts" as largest_packet, smallest_packet and top_5_largest_packets.
 3. Times: "request_time_s" / "rel_time" are seconds from the start of the capture.
    "response_time_ms" = time between the request frame and the response frame.
 4. Frame numbers are Wireshark frame numbers. HTTP messages that span several TCP segments
@@ -123,14 +125,32 @@ def _transaction_for_context(tx: pd.Series) -> dict:
     }
 
 
+def _packet_fact(p: pd.Series) -> dict:
+    """One packet's size facts (time_s = seconds from the start of the capture)."""
+    return {"frame": int(p["frame"]), "length_bytes": int(p["length"]),
+            "time_s": round(float(p["rel_time"]), 6),
+            "src": p["src"], "dst": p["dst"], "protocol": p["protocol"]}
+
+
 def compute_facts(analysis: CaptureAnalysis) -> dict:
     """Facts computed exactly by Python, so the model does not have to."""
+    facts: dict = {}
+
+    # Packet sizes: useful for every capture, including ones without HTTP.
+    packets = analysis.packets
+    if not packets.empty:
+        facts["largest_packet"] = _packet_fact(packets.loc[packets["length"].idxmax()])
+        facts["smallest_packet"] = _packet_fact(packets.loc[packets["length"].idxmin()])
+        facts["top_5_largest_packets"] = [
+            _packet_fact(p) for _, p in packets.nlargest(5, "length").iterrows()]
+
     tx = analysis.transactions
     if tx.empty:
-        return {"note": "No HTTP (clear-text) transactions were found in this capture."}
+        facts["note"] = "No HTTP (clear-text) transactions were found in this capture."
+        return facts
 
     answered = tx.dropna(subset=["response_time_ms"])
-    facts: dict = {"http_transaction_count": int(len(tx))}
+    facts["http_transaction_count"] = int(len(tx))
 
     if not answered.empty:
         slowest = answered.loc[answered["response_time_ms"].idxmax()]

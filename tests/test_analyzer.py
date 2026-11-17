@@ -25,6 +25,12 @@ def get_forms():
 
 
 @pytest.fixture(scope="module")
+def recording_1():
+    """Recording 1: general browsing (includes large packets)."""
+    return analyze_pcap(CAPTURES / "הקלטה 1.pcapng")
+
+
+@pytest.fixture(scope="module")
 def post_form():
     """Recording 4: submitting the form (POST /post), including one failed attempt."""
     return analyze_pcap(CAPTURES / "הקלטה 4.pcapng")
@@ -84,6 +90,13 @@ def test_context_contains_no_raw_packets(get_forms):
     ctx = build_context(get_forms, selected_stream=23)
     assert ctx["precomputed_facts"]["slowest_transaction"]["request_frame"] == 221
     assert ctx["selected_stream"]["tcp_stream"] == 23
+
+
+def test_largest_packet_fact(recording_1):
+    facts = build_context(recording_1)["precomputed_facts"]
+    assert facts["largest_packet"]["frame"] == 7169
+    assert facts["largest_packet"]["length_bytes"] == 40078
+    assert len(facts["top_5_largest_packets"]) == 5
 
 
 def test_hallucinated_evidence_is_detected(get_forms):
