@@ -16,6 +16,22 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+## Gemini API key
+
+The Ask AI tab needs a Gemini API key (the rest of the dashboard works without it).
+
+1. Create a free key in Google AI Studio: https://aistudio.google.com/apikey (sign in with a Google account → **Create API key**).
+2. Copy the example file to `.env`:
+   ```bash
+   copy .env.example .env          # Windows   (Linux/Mac: cp .env.example .env)
+   ```
+3. Open `.env` and replace `your-api-key-here` with your key:
+   ```
+   GEMINI_API_KEY=your-api-key-here
+   ```
+
+`.env` is listed in `.gitignore`, so the key is never committed. If there is no `.env`, you can also paste the key into the sidebar field; it is used only for the current session and not saved.
+
 ## Running
 
 ```bash
